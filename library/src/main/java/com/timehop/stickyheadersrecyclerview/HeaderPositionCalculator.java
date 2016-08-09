@@ -49,13 +49,20 @@ public class HeaderPositionCalculator {
    */
   public boolean hasStickyHeader(View itemView, int orientation, int position) {
     int offset, margin;
+
     mDimensionCalculator.initMargins(mTempRect1, itemView);
-    if (orientation == LinearLayout.VERTICAL) {
-      offset = itemView.getTop();
-      margin = mTempRect1.top;
+
+    if (itemView != null) {
+      if (orientation == LinearLayout.VERTICAL) {
+        offset = itemView.getTop();
+        margin = mTempRect1.top;
+      } else {
+        offset = itemView.getLeft();
+        margin = mTempRect1.left;
+      }
     } else {
-      offset = itemView.getLeft();
-      margin = mTempRect1.left;
+      offset = -1;
+      margin = 0;
     }
 
     return offset <= margin && mAdapter.getHeaderId(position) >= 0;
@@ -109,31 +116,34 @@ public class HeaderPositionCalculator {
 
   private void initDefaultHeaderOffset(Rect headerMargins, RecyclerView recyclerView, View header, View firstView, int orientation) {
     int translationX, translationY;
+
     mDimensionCalculator.initMargins(mTempRect1, header);
 
-    ViewGroup.LayoutParams layoutParams = firstView.getLayoutParams();
-    int leftMargin = 0;
-    int topMargin = 0;
-    if (layoutParams instanceof ViewGroup.MarginLayoutParams) {
-      ViewGroup.MarginLayoutParams marginLayoutParams = (ViewGroup.MarginLayoutParams) layoutParams;
-      leftMargin = marginLayoutParams.leftMargin;
-      topMargin = marginLayoutParams.topMargin;
+    if (header != null && firstView != null) {
+      ViewGroup.LayoutParams layoutParams = firstView.getLayoutParams();
+      int leftMargin = 0;
+      int topMargin = 0;
+      if (layoutParams instanceof ViewGroup.MarginLayoutParams) {
+        ViewGroup.MarginLayoutParams marginLayoutParams = (ViewGroup.MarginLayoutParams) layoutParams;
+        leftMargin = marginLayoutParams.leftMargin;
+        topMargin = marginLayoutParams.topMargin;
+      }
+
+      if (orientation == LinearLayoutManager.VERTICAL) {
+        translationX = firstView.getLeft() - leftMargin + mTempRect1.left;
+        translationY = enableStickyHeader ?
+                Math.max(firstView.getTop() - topMargin - header.getHeight() - mTempRect1.bottom, getListTop(recyclerView) + mTempRect1.top) :
+                firstView.getTop() - topMargin - header.getHeight() - mTempRect1.bottom;
+      } else {
+        translationY = firstView.getTop() - topMargin + mTempRect1.top;
+        translationX = enableStickyHeader ?
+                Math.max(firstView.getLeft() - leftMargin - header.getWidth() - mTempRect1.right, getListLeft(recyclerView) + mTempRect1.left) :
+                firstView.getLeft() - leftMargin - header.getWidth() - mTempRect1.right;
+      }
+
+      headerMargins.set(translationX, translationY, translationX + header.getWidth(), translationY + header.getHeight());
     }
 
-    if (orientation == LinearLayoutManager.VERTICAL) {
-      translationX = firstView.getLeft() - leftMargin + mTempRect1.left;
-      translationY = Math.max(
-          firstView.getTop() - topMargin - header.getHeight() - mTempRect1.bottom,
-          getListTop(recyclerView) + mTempRect1.top);
-    } else {
-      translationY = firstView.getTop() - topMargin + mTempRect1.top;
-      translationX = Math.max(
-          firstView.getLeft() - leftMargin - header.getWidth() - mTempRect1.right,
-          getListLeft(recyclerView) + mTempRect1.left);
-    }
-
-    headerMargins.set(translationX, translationY, translationX + header.getWidth(),
-            translationY + header.getHeight());
   }
 
   private boolean isStickyHeaderBeingPushedOffscreen(RecyclerView recyclerView, View stickyHeader) {
