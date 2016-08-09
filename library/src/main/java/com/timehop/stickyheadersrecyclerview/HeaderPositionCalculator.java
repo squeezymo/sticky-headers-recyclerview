@@ -28,7 +28,8 @@ public class HeaderPositionCalculator {
   private final Rect mTempRect1 = new Rect();
   private final Rect mTempRect2 = new Rect();
 
-  public HeaderPositionCalculator(StickyRecyclerHeadersAdapter adapter, HeaderProvider headerProvider, OrientationProvider orientationProvider, DimensionCalculator dimensionCalculator) {
+  public HeaderPositionCalculator(StickyRecyclerHeadersAdapter adapter, HeaderProvider headerProvider,
+      OrientationProvider orientationProvider, DimensionCalculator dimensionCalculator) {
     mAdapter = adapter;
     mHeaderProvider = headerProvider;
     mOrientationProvider = orientationProvider;
@@ -48,20 +49,13 @@ public class HeaderPositionCalculator {
    */
   public boolean hasStickyHeader(View itemView, int orientation, int position) {
     int offset, margin;
-
     mDimensionCalculator.initMargins(mTempRect1, itemView);
-
-    if (itemView != null) {
-      if (orientation == LinearLayout.VERTICAL) {
-        offset = itemView.getTop();
-        margin = mTempRect1.top;
-      } else {
-        offset = itemView.getLeft();
-        margin = mTempRect1.left;
-      }
+    if (orientation == LinearLayout.VERTICAL) {
+      offset = itemView.getTop();
+      margin = mTempRect1.top;
     } else {
-      offset = -1;
-      margin = 0;
+      offset = itemView.getLeft();
+      margin = mTempRect1.left;
     }
 
     return offset <= margin && mAdapter.getHeaderId(position) >= 0;
@@ -80,14 +74,6 @@ public class HeaderPositionCalculator {
       return false;
     }
 
-    int numColumns = mAdapter.getNumColumns() - mAdapter.getSpanSize(position) + 1;
-    int columnOfItem = position % numColumns;
-    if (columnOfItem > 0) {
-      int firstItemOnRowPosition = position - columnOfItem;
-
-      return hasNewHeader(firstItemOnRowPosition, isReverseLayout);
-    }
-
     long headerId = mAdapter.getHeaderId(position);
 
     if (headerId < 0) {
@@ -99,7 +85,6 @@ public class HeaderPositionCalculator {
     if (!indexOutOfBounds(nextItemPosition)){
       nextItemHeaderId = mAdapter.getHeaderId(nextItemPosition);
     }
-
     int firstItemPosition = isReverseLayout? mAdapter.getItemCount()-1 : 0;
 
     return position == firstItemPosition || headerId != nextItemHeaderId;
@@ -109,101 +94,72 @@ public class HeaderPositionCalculator {
     return position < 0 || position >= mAdapter.getItemCount();
   }
 
-  /**
-   * Verify if header obscure some item on RecyclerView
-   *
-   * @param parent RecyclerView containing all the list items
-   * @return first item that is fully beneath a header
-   */
-  public boolean headerObscuringSomeItem(RecyclerView parent, View firstHeader) {
-    for (int i = 0; i < parent.getChildCount(); i++) {
-      View child = parent.getChildAt(i);
-
-      if (itemIsObscuredByHeader(parent, child, firstHeader, mOrientationProvider.getOrientation(parent))) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  public void initHeaderBounds(Rect bounds, RecyclerView recyclerView, View header, View firstView, boolean firstHeader, boolean enableStickyHeader) {
+  public void initHeaderBounds(Rect bounds, RecyclerView recyclerView, View header, View firstView, boolean firstHeader) {
     int orientation = mOrientationProvider.getOrientation(recyclerView);
-    initDefaultHeaderOffset(bounds, recyclerView, header, firstView, orientation, enableStickyHeader);
+    initDefaultHeaderOffset(bounds, recyclerView, header, firstView, orientation);
 
-    if (enableStickyHeader && firstHeader && isStickyHeaderBeingPushedOffscreen(recyclerView, header)) {
+    if (firstHeader && isStickyHeaderBeingPushedOffscreen(recyclerView, header)) {
       View viewAfterNextHeader = getFirstViewUnobscuredByHeader(recyclerView, header);
       int firstViewUnderHeaderPosition = recyclerView.getChildAdapterPosition(viewAfterNextHeader);
       View secondHeader = mHeaderProvider.getHeader(recyclerView, firstViewUnderHeaderPosition);
-      translateHeaderWithNextHeader(recyclerView, mOrientationProvider.getOrientation(recyclerView), bounds, header, viewAfterNextHeader, secondHeader);
+      translateHeaderWithNextHeader(recyclerView, mOrientationProvider.getOrientation(recyclerView), bounds,
+          header, viewAfterNextHeader, secondHeader);
     }
   }
 
-  public Rect getHeaderBounds(RecyclerView recyclerView, View header, View firstView, boolean firstHeader, boolean enableStickyHeader) {
-    Rect rect = new Rect();
-
-    initHeaderBounds(rect, recyclerView, header, firstView, firstHeader, enableStickyHeader);
-
-    return rect;
-  }
-
-  private void initDefaultHeaderOffset(Rect headerMargins, RecyclerView recyclerView, View header, View firstView, int orientation, boolean enableStickyHeader) {
+  private void initDefaultHeaderOffset(Rect headerMargins, RecyclerView recyclerView, View header, View firstView, int orientation) {
     int translationX, translationY;
-
     mDimensionCalculator.initMargins(mTempRect1, header);
 
-    if (header != null && firstView != null) {
-      ViewGroup.LayoutParams layoutParams = firstView.getLayoutParams();
-      int leftMargin = 0;
-      int topMargin = 0;
-      if (layoutParams instanceof ViewGroup.MarginLayoutParams) {
-        ViewGroup.MarginLayoutParams marginLayoutParams = (ViewGroup.MarginLayoutParams) layoutParams;
-        leftMargin = marginLayoutParams.leftMargin;
-        topMargin = marginLayoutParams.topMargin;
-      }
-
-      if (orientation == LinearLayoutManager.VERTICAL) {
-        translationX = firstView.getLeft() - leftMargin + mTempRect1.left;
-        translationY = enableStickyHeader ?
-                Math.max(firstView.getTop() - topMargin - header.getHeight() - mTempRect1.bottom, getListTop(recyclerView) + mTempRect1.top) :
-                firstView.getTop() - topMargin - header.getHeight() - mTempRect1.bottom;
-      } else {
-        translationY = firstView.getTop() - topMargin + mTempRect1.top;
-        translationX = enableStickyHeader ?
-                Math.max(firstView.getLeft() - leftMargin - header.getWidth() - mTempRect1.right, getListLeft(recyclerView) + mTempRect1.left) :
-                firstView.getLeft() - leftMargin - header.getWidth() - mTempRect1.right;
-      }
-
-      headerMargins.set(translationX, translationY, translationX + header.getWidth(), translationY + header.getHeight());
+    ViewGroup.LayoutParams layoutParams = firstView.getLayoutParams();
+    int leftMargin = 0;
+    int topMargin = 0;
+    if (layoutParams instanceof ViewGroup.MarginLayoutParams) {
+      ViewGroup.MarginLayoutParams marginLayoutParams = (ViewGroup.MarginLayoutParams) layoutParams;
+      leftMargin = marginLayoutParams.leftMargin;
+      topMargin = marginLayoutParams.topMargin;
     }
+
+    if (orientation == LinearLayoutManager.VERTICAL) {
+      translationX = firstView.getLeft() - leftMargin + mTempRect1.left;
+      translationY = Math.max(
+          firstView.getTop() - topMargin - header.getHeight() - mTempRect1.bottom,
+          getListTop(recyclerView) + mTempRect1.top);
+    } else {
+      translationY = firstView.getTop() - topMargin + mTempRect1.top;
+      translationX = Math.max(
+          firstView.getLeft() - leftMargin - header.getWidth() - mTempRect1.right,
+          getListLeft(recyclerView) + mTempRect1.left);
+    }
+
+    headerMargins.set(translationX, translationY, translationX + header.getWidth(),
+            translationY + header.getHeight());
   }
 
   private boolean isStickyHeaderBeingPushedOffscreen(RecyclerView recyclerView, View stickyHeader) {
-    if (stickyHeader != null) {
-      View viewAfterHeader = getFirstViewUnobscuredByHeader(recyclerView, stickyHeader);
-      int firstViewUnderHeaderPosition = recyclerView.getChildAdapterPosition(viewAfterHeader);
-      if (firstViewUnderHeaderPosition == RecyclerView.NO_POSITION) {
+    View viewAfterHeader = getFirstViewUnobscuredByHeader(recyclerView, stickyHeader);
+    int firstViewUnderHeaderPosition = recyclerView.getChildAdapterPosition(viewAfterHeader);
+    if (firstViewUnderHeaderPosition == RecyclerView.NO_POSITION) {
         return false;
-      }
+    }
 
-      boolean isReverseLayout = mOrientationProvider.isReverseLayout(recyclerView);
-      if (firstViewUnderHeaderPosition > 0 && hasNewHeader(firstViewUnderHeaderPosition, isReverseLayout)) {
-        View nextHeader = mHeaderProvider.getHeader(recyclerView, firstViewUnderHeaderPosition);
-        mDimensionCalculator.initMargins(mTempRect1, nextHeader);
-        mDimensionCalculator.initMargins(mTempRect2, stickyHeader);
+    boolean isReverseLayout = mOrientationProvider.isReverseLayout(recyclerView);
+    if (firstViewUnderHeaderPosition > 0 && hasNewHeader(firstViewUnderHeaderPosition, isReverseLayout)) {
+      View nextHeader = mHeaderProvider.getHeader(recyclerView, firstViewUnderHeaderPosition);
+      mDimensionCalculator.initMargins(mTempRect1, nextHeader);
+      mDimensionCalculator.initMargins(mTempRect2, stickyHeader);
 
-        if (mOrientationProvider.getOrientation(recyclerView) == LinearLayoutManager.VERTICAL) {
-          int topOfNextHeader = viewAfterHeader.getTop() - mTempRect1.bottom - nextHeader.getHeight() - mTempRect1.top;
-          int bottomOfThisHeader = recyclerView.getPaddingTop() + stickyHeader.getBottom() + mTempRect2.top + mTempRect2.bottom;
-          if (topOfNextHeader < bottomOfThisHeader) {
-            return true;
-          }
-        } else {
-          int leftOfNextHeader = viewAfterHeader.getLeft() - mTempRect1.right - nextHeader.getWidth() - mTempRect1.left;
-          int rightOfThisHeader = recyclerView.getPaddingLeft() + stickyHeader.getRight() + mTempRect2.left + mTempRect2.right;
-          if (leftOfNextHeader < rightOfThisHeader) {
-            return true;
-          }
+      if (mOrientationProvider.getOrientation(recyclerView) == LinearLayoutManager.VERTICAL) {
+        int topOfNextHeader = viewAfterHeader.getTop() - mTempRect1.bottom - nextHeader.getHeight() - mTempRect1.top;
+        int bottomOfThisHeader = recyclerView.getPaddingTop() + stickyHeader.getBottom() + mTempRect2.top + mTempRect2.bottom;
+        if (topOfNextHeader < bottomOfThisHeader) {
+          return true;
+        }
+      } else {
+        int leftOfNextHeader = viewAfterHeader.getLeft() - mTempRect1.right - nextHeader.getWidth() - mTempRect1.left;
+        int rightOfThisHeader = recyclerView.getPaddingLeft() + stickyHeader.getRight() + mTempRect2.left + mTempRect2.right;
+        if (leftOfNextHeader < rightOfThisHeader) {
+          return true;
         }
       }
     }
@@ -212,11 +168,9 @@ public class HeaderPositionCalculator {
   }
 
   private void translateHeaderWithNextHeader(RecyclerView recyclerView, int orientation, Rect translation,
-                                             View currentHeader, View viewAfterNextHeader, View nextHeader) {
-
+    View currentHeader, View viewAfterNextHeader, View nextHeader) {
     mDimensionCalculator.initMargins(mTempRect1, nextHeader);
     mDimensionCalculator.initMargins(mTempRect2, currentHeader);
-
     if (orientation == LinearLayoutManager.VERTICAL) {
       int topOfStickyHeader = getListTop(recyclerView) + mTempRect2.top + mTempRect2.bottom;
       int shiftFromNextHeader = viewAfterNextHeader.getTop() - nextHeader.getHeight() - mTempRect1.bottom - mTempRect1.top - currentHeader.getHeight() - topOfStickyHeader;
